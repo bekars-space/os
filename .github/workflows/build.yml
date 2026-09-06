@@ -50,6 +50,7 @@ jobs:
           declare -A file_permissions
           source "${PROFILE_DIR}/profiledef.sh"
           echo "iso_name=${iso_name} iso_version=${iso_version} label=${iso_label}"
+          echo "file permission entries: ${#file_permissions[@]}"
 
       - name: Install build dependencies
         run: |
