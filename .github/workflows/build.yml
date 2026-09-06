@@ -22,6 +22,12 @@ env:
   OUT_DIR: out
   WORK_DIR: /tmp/bekaros-work
 
+# The archlinux container's default shell is sh (and has no git);
+# force bash since the steps use `source`, `[[ ]]`, etc.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   build:
     name: Build ISO
@@ -40,8 +46,8 @@ jobs:
           cat /etc/os-release
           uname -a
           df -h
-          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
           # shellcheck disable=SC1091
+          declare -A file_permissions
           source "${PROFILE_DIR}/profiledef.sh"
           echo "iso_name=${iso_name} iso_version=${iso_version} label=${iso_label}"
 
@@ -52,7 +58,10 @@ jobs:
           # Refresh the keyring first: a stale base image cannot verify
           # packages signed by newly added packager keys.
           pacman -Sy --noconfirm archlinux-keyring
-          pacman -Su --noconfirm --needed archiso
+          # git is not in the base container image; needed below and by
+          # any step that shells out to git.
+          pacman -Su --noconfirm --needed archiso git
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
 
       - name: Build ISO with mkarchiso
         run: |

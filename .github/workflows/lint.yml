@@ -24,10 +24,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Pinned binary download: the rhysd/actionlint docker tags do not
+      # track the GitHub release versions (docker://rhysd/actionlint:vX
+      # manifests do not exist), so install the release binary directly.
       - name: actionlint
-        uses: docker://rhysd/actionlint:v1.7.7
-        with:
-          args: -color
+        run: |
+          set -euo pipefail
+          url="https://github.com/rhysd/actionlint/releases/download"
+          curl -sSfL "${url}/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz" \
+            -o /tmp/actionlint.tar.gz
+          tar -xzf /tmp/actionlint.tar.gz -C /tmp
+          /tmp/actionlint -color
 
       - name: Set up Python for yamllint
         uses: actions/setup-python@v5
@@ -105,7 +112,11 @@ jobs:
           # --- profiledef.sh must define the required archiso variables ---
           tmp="$(mktemp)"
           # Source in a subshell and dump the variables we care about.
+          # NOTE: declare -A first — file_permissions is an associative-array
+          # literal and bash parses its keys as arithmetic without it
+          # (mkarchiso pre-declares it the same way before sourcing).
           (
+            declare -A file_permissions
             # shellcheck disable=SC1091
             source profile/profiledef.sh
             printf 'iso_name=%s\n' "${iso_name:?iso_name is empty}"
@@ -129,6 +140,7 @@ jobs:
 
           # --- file_permissions targets must exist in airootfs ---
           (
+            declare -A file_permissions
             source profile/profiledef.sh
             for target in "${!file_permissions[@]}"; do
               rel="${target#/}"
