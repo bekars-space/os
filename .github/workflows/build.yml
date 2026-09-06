@@ -38,7 +38,7 @@ jobs:
       options: --privileged
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Show environment
         run: |
@@ -88,7 +88,7 @@ jobs:
           } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Upload ISO artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bekaros-iso-${{ github.sha }}
           path: |
@@ -107,7 +107,7 @@ jobs:
       contents: write
     steps:
       - name: Download ISO artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: bekaros-iso-*
           merge-multiple: true
