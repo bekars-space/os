@@ -1,0 +1,149 @@
+# Lint & validate the Bekaros archiso profile.
+#
+# Fast, cheap feedback for every push and pull request. The heavy ISO build
+# lives in build.yml and only runs on master / tags / manual dispatch.
+name: Lint
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  workflows:
+    name: Lint workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: actionlint
+        uses: docker://rhysd/actionlint:v1.7.7
+        with:
+          args: -color
+
+      - name: Set up Python for yamllint
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: yamllint
+        run: |
+          set -euo pipefail
+          pip install --disable-pip-version-check --quiet "yamllint==1.37.1"
+          yamllint -s -c .yamllint.yml .github/workflows
+
+  shell:
+    name: Shellcheck & format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install shellcheck and shfmt
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq shellcheck
+          sudo curl -sSfL "https://github.com/mvdan/sh/releases/download/v3.11.0/shfmt_v3.11.0_linux_amd64" \
+            -o /usr/local/bin/shfmt
+          sudo chmod +x /usr/local/bin/shfmt
+          shellcheck --version
+          shfmt --version
+
+      - name: Syntax check (bash -n)
+        run: |
+          set -euo pipefail
+          bash -n profile/profiledef.sh
+          bash -n profile/airootfs/usr/local/bin/choose-mirror
+          bash -n profile/airootfs/usr/local/bin/livecd-sound
+          bash -n profile/airootfs/root/.automated_script.sh
+
+      - name: ShellCheck
+        run: |
+          set -euo pipefail
+          shellcheck -S warning \
+            profile/profiledef.sh \
+            profile/airootfs/usr/local/bin/choose-mirror \
+            profile/airootfs/usr/local/bin/livecd-sound \
+            profile/airootfs/root/.automated_script.sh
+
+      # Upstream archiso scripts use 4-space indent (not shfmt's tabs),
+      # so this is advisory only and never fails the build.
+      - name: shfmt (advisory, non-blocking)
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          shfmt --diff --simplify \
+            profile/profiledef.sh \
+            profile/airootfs/usr/local/bin/choose-mirror \
+            profile/airootfs/usr/local/bin/livecd-sound \
+            profile/airootfs/root/.automated_script.sh
+
+  profile:
+    name: Validate archiso profile
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate profile
+        run: |
+          set -euo pipefail
+
+          fail() { echo "::error::$*" >&2; exit 1; }
+
+          # --- profiledef.sh must define the required archiso variables ---
+          tmp="$(mktemp)"
+          # Source in a subshell and dump the variables we care about.
+          (
+            # shellcheck disable=SC1091
+            source profile/profiledef.sh
+            printf 'iso_name=%s\n' "${iso_name:?iso_name is empty}"
+            printf 'iso_label=%s\n' "${iso_label:?iso_label is empty}"
+            printf 'iso_publisher=%s\n' "${iso_publisher:?iso_publisher is empty}"
+            printf 'iso_application=%s\n' "${iso_application:?iso_application is empty}"
+            printf 'iso_version=%s\n' "${iso_version:?iso_version is empty}"
+            printf 'install_dir=%s\n' "${install_dir:?install_dir is empty}"
+          ) > "${tmp}"
+          cat "${tmp}"
+
+          # --- package lists: no blanks-after-strip, no duplicates ---
+          for list in profile/packages.x86_64 profile/bootstrap_packages; do
+            [[ -f "${list}" ]] || fail "missing package list: ${list}"
+            stripped="$(sed -e 's/#.*//' -e 's/^[[:blank:]]*//' -e 's/[[:blank:]]*$//' "${list}" | grep -v '^$')"
+            [[ -n "${stripped}" ]] || fail "${list} has no packages after stripping comments"
+            dupes="$(printf '%s\n' "${stripped}" | sort | uniq -d || true)"
+            [[ -z "${dupes}" ]] || fail "duplicate packages in ${list}: ${dupes}"
+            echo "${list}: $(printf '%s\n' "${stripped}" | wc -l) packages, no duplicates"
+          done
+
+          # --- file_permissions targets must exist in airootfs ---
+          (
+            source profile/profiledef.sh
+            for target in "${!file_permissions[@]}"; do
+              rel="${target#/}"
+              [[ -e "profile/airootfs/${rel}" ]] || fail "file_permissions target missing in airootfs: ${target}"
+            done
+          )
+          echo "file_permissions: all targets exist"
+
+          # --- pacman.conf sanity ---
+          grep -q '^\[core\]' profile/pacman.conf || fail "pacman.conf missing [core]"
+          grep -q '^\[extra\]' profile/pacman.conf || fail "pacman.conf missing [extra]"
+
+          # --- bootloader dirs present (matches bootmodes in profiledef) ---
+          for d in profile/syslinux profile/grub profile/efiboot; do
+            [[ -d "${d}" ]] || fail "missing bootloader dir: ${d}"
+          done
+
+          echo "Profile validation passed."

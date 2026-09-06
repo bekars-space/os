@@ -1,0 +1,115 @@
+# Build the Bekaros ISO and publish it to GitHub Releases.
+#
+# Heavy job: only runs on master, version tags (v*), or manual dispatch.
+# Fast checks (shellcheck, profile validation) run on every PR via lint.yml.
+name: Build
+
+on:
+  push:
+    branches: [master]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PROFILE_DIR: profile
+  OUT_DIR: out
+  WORK_DIR: /tmp/bekaros-work
+
+jobs:
+  build:
+    name: Build ISO
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: archlinux/archlinux:latest
+      options: --privileged
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show environment
+        run: |
+          set -euo pipefail
+          cat /etc/os-release
+          uname -a
+          df -h
+          git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          # shellcheck disable=SC1091
+          source "${PROFILE_DIR}/profiledef.sh"
+          echo "iso_name=${iso_name} iso_version=${iso_version} label=${iso_label}"
+
+      - name: Install build dependencies
+        run: |
+          set -euo pipefail
+          pacman-key --init
+          # Refresh the keyring first: a stale base image cannot verify
+          # packages signed by newly added packager keys.
+          pacman -Sy --noconfirm archlinux-keyring
+          pacman -Su --noconfirm --needed archiso
+
+      - name: Build ISO with mkarchiso
+        run: |
+          set -euo pipefail
+          rm -rf "${WORK_DIR}" "${OUT_DIR}"
+          mkdir -p "${WORK_DIR}" "${OUT_DIR}"
+          mkarchiso -v -w "${WORK_DIR}" -o "${OUT_DIR}" "${PROFILE_DIR}"
+
+      - name: Checksums and summary
+        run: |
+          set -euo pipefail
+          ls -lh "${OUT_DIR}/"
+          du -sh "${WORK_DIR}" "${OUT_DIR}" || true
+          ( cd "${OUT_DIR}" && sha256sum ./*.iso > SHA256SUMS )
+          cat "${OUT_DIR}/SHA256SUMS"
+          {
+            echo "## Bekaros ISO build"
+            echo ""
+            echo '```'
+            ls -lh "${OUT_DIR}/"
+            cat "${OUT_DIR}/SHA256SUMS"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload ISO artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bekaros-iso-${{ github.sha }}
+          path: |
+            out/*.iso
+            out/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Download ISO artifact
+        uses: actions/download-artifact@v4
+        with:
+          pattern: bekaros-iso-*
+          merge-multiple: true
+          path: dist
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          ls -lh dist/
+          cat dist/SHA256SUMS
+          gh release create "${GITHUB_REF_NAME}" \
+            --generate-notes \
+            dist/*.iso dist/SHA256SUMS
