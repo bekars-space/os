@@ -154,7 +154,9 @@ jobs:
           grep -q '^\[extra\]' profile/pacman.conf || fail "pacman.conf missing [extra]"
 
           # --- bootloader dirs present (matches bootmodes in profiledef) ---
-          for d in profile/syslinux profile/grub profile/efiboot; do
+          # grub/ intentionally removed in v01: bootmodes are
+          # bios.syslinux + uefi.systemd-boot only.
+          for d in profile/syslinux profile/efiboot; do
             [[ -d "${d}" ]] || fail "missing bootloader dir: ${d}"
           done
 
