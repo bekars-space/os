@@ -1,0 +1,12 @@
+NAME="Bekaros Linux"
+PRETTY_NAME="Bekaros Linux 01"
+ID=bekaros
+ID_LIKE=arch
+BUILD_ID=01
+VERSION="01"
+VERSION_ID="01"
+HOME_URL="https://bekars.space"
+DOCUMENTATION_URL="https://wiki.archlinux.org"
+SUPPORT_URL="https://bekars.space"
+BUG_REPORT_URL="https://github.com/bekars-space/os/issues"
+LOGO=bekaros

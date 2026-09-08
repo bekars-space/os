@@ -1,0 +1,32 @@
+# Bekaros 01 netinstall groups — stock Arch repos only.
+# Calamares netinstall module fetches these at install time.
+groups:
+  - name: "Minimal"
+    description: "Base system, no desktop"
+    packages:
+      - base
+      - linux
+      - linux-firmware
+      - networkmanager
+      - sudo
+      - vim
+  - name: "Plasma Minimal"
+    description: "Bekaros live environment (KDE Plasma, SDDM, Firefox)"
+    packages:
+      - plasma-desktop
+      - sddm
+      - dolphin
+      - konsole
+      - plasma-nm
+      - plasma-pa
+      - kscreen
+      - powerdevil
+      - networkmanager
+      - pipewire
+      - pipewire-pulse
+      - pipewire-alsa
+      - wireplumber
+      - noto-fonts
+      - ttf-liberation
+      - firefox
+      - sudo
