@@ -7,6 +7,8 @@ Admission test for every new entry in `profile/packages.x86_64`:
 3. No meta-packages (`plasma-meta`, `kde-applications-meta`).
 4. No Office, Discover, PIM, games in 01.
 5. Prefer existing Arch `[core]/[extra]` package, no custom repo in 01.
+6. Must resolve from stock `[core]/[extra]` (no AUR in 01 — e.g. `calamares`
+   was dropped upstream and now only exists in AUR, so it cannot ship in 01).
 
 Removal candidates for v01 (rescue parity dropped):
 `clonezilla, partimage, partclone, fsarchiver, testdisk, ddrescue, cloud-init,

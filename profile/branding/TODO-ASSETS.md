@@ -6,7 +6,7 @@ Drop-in replacements for v01 placeholders — no code refactor needed when ready
 - `profile/grub/theme.txt` + fonts (currently stock / grub dir pending removal)
 - `profile/airootfs/usr/share/backgrounds/bekaros/wallpaper-1920x1080.png`
 - `profile/airootfs/usr/share/sddm/themes/bekaros/theme.conf` (fallback: breeze)
-- `logo.svg` source + `branding.desc` colors for Calamares
+- `logo.svg` source + installer branding colors
 - `profile/airootfs/etc/os-release`, `etc/issue`, `etc/motd` final strings
 
-SDDM/Calamares configs in v01 point at `breeze` + stub `bekaros` branding dir.
+SDDM configs in v01 point at `breeze`.

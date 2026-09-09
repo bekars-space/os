@@ -1,6 +1,6 @@
 # Bekaros 01
 
-Minimal Arch-based live ISO with KDE Plasma + SDDM and Calamares netinstall.
+Minimal Arch-based live ISO with KDE Plasma + SDDM and archinstall.
 
 Live user: `bekar` (autologin on SDDM, passwordless sudo for install).
 Browser: Firefox. No Kate. No custom repo in 01 — stock `[core]` + `[extra]` only.
@@ -21,7 +21,7 @@ qemu-system-x86_64 -enable-kvm -m 4G -cdrom out/*.iso -boot d
 qemu-system-x86_64 -enable-kvm -m 4G -drive if=pflash,format=raw,readonly=on,file=/usr/share/ovmf/x64/OVMF_CODE.fd -cdrom out/*.iso
 ```
 
-Expected: SDDM autologin as `bekar` → Plasma → launch Calamares → netinstall group list loads.
+Expected: SDDM autologin as `bekar` → Plasma → run `archinstall` to install.
 
 ## Package policy
 

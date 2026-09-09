@@ -161,3 +161,39 @@ jobs:
           done
 
           echo "Profile validation passed."
+
+  packages:
+    name: Resolve packages from stock repos
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container:
+      image: archlinux/archlinux:latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # Fail fast if a listed package is not in stock [core]/[extra].
+      # mkarchiso would otherwise fail 15+ min into the heavy Build job
+      # (e.g. `error: target not found: calamares` after it left the repos
+      # for AUR-only). Uses the profile's own pacman.conf for fidelity.
+      - name: Verify packages resolve via pacman
+        run: |
+          set -euo pipefail
+          pacman -Sy --noconfirm --config profile/pacman.conf
+          fail() { echo "::error::$*" >&2; exit 1; }
+          missing=0
+          for list in profile/packages.x86_64 profile/bootstrap_packages; do
+            while IFS= read -r pkg || [[ -n "${pkg}" ]]; do
+              pkg="${pkg%%#*}"
+              pkg="$(echo "${pkg}" | xargs || true)"
+              [[ -z "${pkg}" ]] && continue
+              if ! pacman -Si --config profile/pacman.conf "${pkg}" >/dev/null 2>&1; then
+                echo "::error::${list}: target not found in stock repos: ${pkg}" >&2
+                missing=1
+              fi
+            done < "${list}"
+          done
+          [[ "${missing}" -eq 0 ]] || fail "one or more packages not in [core]/[extra]; no AUR in 01"

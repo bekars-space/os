@@ -5,7 +5,6 @@ archinstall
 base
 brltty
 btrfs-progs
-calamares
 cryptsetup
 curl
 diffutils
